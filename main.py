@@ -156,6 +156,7 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         # response = await model.generate_content_async(contents) # Old way using GenerativeModel instance
         response = await aclient.models.generate_content(
             model=model_name,
+            system_instruction="You are a helpful assistant that can answer questions about the subject and provide references to the relevant papers. You will be provided context of different question papers of a specficic subject. The user, ie the students will ask you questions about the subject and you will answer them based on the context provided.",
             contents=contents # Pass the constructed contents
         )
 
