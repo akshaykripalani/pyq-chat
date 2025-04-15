@@ -1,0 +1,15 @@
+# Test the /status endpoint
+curl http://localhost:8000/status
+
+# Test the /{subject} endpoint (Example with DAA)
+# Replace DAA in the URL and JSON body with the desired subject
+curl -X POST http://localhost:8000/DAA -H "Content-Type: application/json" -d "{\"message\": \"Which papers have asked about asymptotica analysis.\", \"subject\": \"DAA\", \"messages\": [{\"role\": \"user\", \"content\": \"Which papers have asked about asymptotica analysis.\"}]}"
+
+# Test the /{subject} endpoint (Example with DBMS)
+# Replace DBMS in the URL and JSON body with the desired subject
+curl -X POST http://localhost:8000/DBMS ^
+-H "Content-Type: application/json" ^
+-d "{\"message\": \"What papers have asked is the difference between primary key and unique key?\", \"subject\": \"DBMS\", \"messages\": [{\"role\": \"user\", \"content\": \"What papers have asked the difference between primary key and unique key?\"}]}"
+
+# Add more examples for other subjects as needed following the pattern above.
+# Note: The JSON is now on a single line within the -d argument and inner quotes are escaped with \". 

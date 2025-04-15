@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
-import uvicorn
 import logging
 from typing import Any, Dict, List
 import os
@@ -53,23 +52,17 @@ class ChatRequest(BaseModel):
         return v
 
 # Create a Gemini client
-def create_genai_client():
+def get_client():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         logger.error("GEMINI_API_KEY environment variable not set")
         raise ValueError("GEMINI_API_KEY environment variable not set")
-    genai.configure(api_key=api_key) # Configure the library with the API key
-    return genai # Return the configured library module
-
-# Cache for clients to avoid creating multiple instances
-subject_clients = {}
-
-def get_client(subject):
-    if subject not in subject_clients:
-        # No need to create a new client instance each time with the new library structure
-        # Just ensure the library is configured
-        subject_clients[subject] = create_genai_client()
-    return subject_clients[subject]
+    # Use environment variables, Client() will pick it up automatically
+    # genai.configure(api_key=api_key) # Configure the library with the API key
+    # return genai # Return the configured library module
+    # According to docs, Client() reads GOOGLE_API_KEY env var
+    client = genai.Client(api_key=api_key)
+    return client
 
 # Cache PDF files for each subject
 subject_files_cache = {}
@@ -79,7 +72,8 @@ subject_files_cache = {}
 def get_pdf_files(subject):
     logger.info(f"Loading PDF files for {subject}")
     files = []
-    client_module = get_client(subject) # Get the configured genai module
+    # client_module = get_client(subject) # Get the configured genai module
+    client = get_client() # Get the client instance
     subject_dir = f"v1/{subject}"
 
     try:
@@ -91,8 +85,8 @@ def get_pdf_files(subject):
             if filename.endswith(".pdf"):
                 file_path = os.path.join(subject_dir, filename) # Use os.path.join for cross-platform compatibility
                 logger.info(f"Uploading file: {file_path}")
-                # Use the client_module directly for file operations
-                uploaded_file = client_module.upload_file(path=file_path)
+                # Use client.files.upload with updated API structure
+                uploaded_file = client.files.upload(file=file_path)
                 files.append(uploaded_file)
 
         # subject_files_cache[subject] = files # Caching handled by lru_cache
@@ -103,7 +97,8 @@ def get_pdf_files(subject):
 
 # Generate function for subject-specific responses, now accepting history
 async def generate_response(subject: str, history: List[ChatMessage]):
-    client_module = get_client(subject) # Get the configured genai module
+    # client_module = get_client(subject) # Get the configured genai module
+    client = get_client() # Get the client instance
     files = get_pdf_files(subject) # This will use the cached result if available
 
     if not files:
@@ -151,11 +146,18 @@ async def generate_response(subject: str, history: List[ChatMessage]):
                   detail="No valid messages found in the provided chat history."
              )
 
-        model = client_module.GenerativeModel(model_name=model_name)
+        # Get the model instance from the client
+        # model = client_module.GenerativeModel(model_name=model_name)
+        # model = client.get_model(model_name=model_name) # Incorrect: Client has no get_model
 
-        # Generate content using the constructed history
-        logger.info(f"Generating content for {subject} with {len(contents)} history entries.")
-        response = await model.generate_content_async(contents) # Pass the constructed contents
+        # Use the async client and its models module to generate content
+        aclient = client.aio
+        logger.info(f"Generating content for {subject} with {len(contents)} history entries using model {model_name}.")
+        # response = await model.generate_content_async(contents) # Old way using GenerativeModel instance
+        response = await aclient.models.generate_content(
+            model=model_name,
+            contents=contents # Pass the constructed contents
+        )
 
         return response.text # Access the text part of the response
     except Exception as e:
@@ -229,13 +231,14 @@ async def subject_endpoint(subject: str, request_data: ChatRequest): # Changed m
 
 if __name__ == "__main__":
     try:
+        import uvicorn
         # Ensure API key is set before starting
         if not os.environ.get("GEMINI_API_KEY"):
             logger.critical("GEMINI_API_KEY environment variable not set. Service cannot start.")
-            exit(1) # Exit if API key is missing
+            exit(1)  # Exit if API key is missing
 
         logger.info("Starting AI Agent Chatbot Service")
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
     except Exception as e:
         logger.critical(f"Failed to start service: {str(e)}")
-        exit(1) # Exit on any other startup error
+        exit(1)  # Exit on any other startup error
