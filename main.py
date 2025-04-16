@@ -158,7 +158,7 @@ async def generate_response(subject: str, history: List[ChatMessage]):
             model=model_name,
             contents=contents, # Pass the constructed 
             config=types.GenerateContentConfig(
-                system_instruction="You are a helpful assistant that can answer questions about the subject and provide references to the relevant papers. You will be provided context of different question papers of a specficic subject. The user, ie the students will ask you questions about the subject and you will answer them based on the context provided."
+                system_instruction="You are a helpful assistant that can answer questions about the subject and provide references to the relevant papers. You will be provided context of different question papers of a specficic subject. The user, ie the students will ask you questions about the subject and you will answer them based on the context provided. When the user asks questions about the papers, you will be specific as to what paper and what date the paper is from."
             )
         )
 
