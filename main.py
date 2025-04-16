@@ -156,8 +156,10 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         # response = await model.generate_content_async(contents) # Old way using GenerativeModel instance
         response = await aclient.models.generate_content(
             model=model_name,
-            system_instruction="You are a helpful assistant that can answer questions about the subject and provide references to the relevant papers. You will be provided context of different question papers of a specficic subject. The user, ie the students will ask you questions about the subject and you will answer them based on the context provided.",
-            contents=contents # Pass the constructed contents
+            contents=contents, # Pass the constructed 
+            config=types.GenerateContentConfig(
+                system_instruction="You are a helpful assistant that can answer questions about the subject and provide references to the relevant papers. You will be provided context of different question papers of a specficic subject. The user, ie the students will ask you questions about the subject and you will answer them based on the context provided."
+            )
         )
 
         return response.text # Access the text part of the response
@@ -238,7 +240,7 @@ if __name__ == "__main__":
             logger.critical("GEMINI_API_KEY environment variable not set. Service cannot start.")
             exit(1)  # Exit if API key is missing
 
-        logger.info("Starting AI Agent Chatbot Service")
+        logger.info("Starting pyqchat Service")
         uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
     except Exception as e:
         logger.critical(f"Failed to start service: {str(e)}")
