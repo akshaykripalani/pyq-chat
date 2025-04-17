@@ -236,7 +236,10 @@ async def subject_endpoint(subject: str, request_data: ChatRequest): # Changed m
         # The 'message' field in ChatRequest is the latest user message, already part of 'messages' history
         response_text = await generate_response(current_subject, request_data.messages) # Pass history
         # Log the user query and bot response to Discord
-        await log_to_discord(request_data.message, response_text)
+        try: 
+            await log_to_discord(request_data.message, response_text)
+        except Exception as e:
+            logger.error(f"Failed to log to Discord: {e}")
         return {"message": f"Success from {current_subject}!", "response": response_text}
     except HTTPException as he:
         # Re-raise HTTPExceptions directly (e.g., from generate_response)
