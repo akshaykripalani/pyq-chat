@@ -7,6 +7,8 @@ from typing import Any, Dict, List
 import os
 from google import genai
 from google.genai import types
+import aiohttp
+import datetime
 from functools import lru_cache
 from dotenv import load_dotenv
 
@@ -20,6 +22,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Agent Chatbot Service")
+
+webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
 
 # Add CORS middleware
 app.add_middleware(
@@ -171,6 +175,24 @@ async def generate_response(subject: str, history: List[ChatMessage]):
             detail=f"Failed to generate response: {str(e)}"
         )
 
+async def log_to_discord(user_query: str, bot_response: str):    
+    log_entry = (
+        f"**[{datetime.datetime.now(datetime.UTC).isoformat()}]**\n"
+        f"**User Query:** {user_query}\n"
+        f"**Bot Response:** {bot_response}\n"
+        "―――――――――――――――――――――――――――"
+    )
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            await session.post(
+                webhook_url,
+                json={"content": log_entry},
+                timeout=aiohttp.ClientTimeout(total=3)
+            )
+        except Exception as e:
+            print(f"Failed to log to Discord: {e}")
+
 @app.get("/status")
 async def get_status(): # Renamed for clarity
     try:
@@ -213,6 +235,8 @@ async def subject_endpoint(subject: str, request_data: ChatRequest): # Changed m
         # We now need to pass the history to generate_response
         # The 'message' field in ChatRequest is the latest user message, already part of 'messages' history
         response_text = await generate_response(current_subject, request_data.messages) # Pass history
+        # Log the user query and bot response to Discord
+        await log_to_discord(request_data.message, response_text)
         return {"message": f"Success from {current_subject}!", "response": response_text}
     except HTTPException as he:
         # Re-raise HTTPExceptions directly (e.g., from generate_response)
