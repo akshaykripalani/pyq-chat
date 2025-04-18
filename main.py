@@ -104,7 +104,7 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         yield f"data: {json.dumps(payload)}\\n\\n"
         return # Stop execution for this request
 
-    model_name = "models/gemini-2.0-flash-thinking-exp-01-21" 
+    model_name = "models/gemini-2.5-flash-preview-04-17" 
 
     try:
         # Construct the prompt contents including files and chat history
