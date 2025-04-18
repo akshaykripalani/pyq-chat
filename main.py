@@ -99,7 +99,9 @@ async def generate_response(subject: str, history: List[ChatMessage]):
     if not files:
         logger.warning(f"No PDF files found for subject: {subject}")
         # Yield a message indicating no files were found
-        yield f"data: {{ \"message\": \"No reference materials (PDFs) found for the subject '{subject}'. Cannot generate response.\" }}\\n\\n"
+        content = f"No reference materials (PDFs) found for the subject '{subject}'. Cannot generate response."
+        payload = {"type": "message", "content": content}
+        yield f"data: {json.dumps(payload)}\\n\\n"
         return # Stop execution for this request
 
     model_name = "models/gemini-2.0-flash-thinking-exp-01-21" 
@@ -138,7 +140,8 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         if not contents:
              logger.error(f"Cannot generate response for {subject}: No valid messages in history.")
              # Yield an error message for SSE
-             yield f"data: {{ \"error\": \"No valid messages found in the provided chat history.\" }}\\n\\n"
+             payload = {"type": "error", "content": "No valid messages found in the provided chat history."}
+             yield f"data: {json.dumps(payload)}\\n\\n"
              # Optionally raise an exception if you want server logs, but yielding is better for client feedback
              # raise HTTPException(
              #      status_code=status.HTTP_400_BAD_REQUEST,
@@ -172,10 +175,10 @@ async def generate_response(subject: str, history: List[ChatMessage]):
 
                     if part.thought:
                         # This is a thought part
-                        logger.info(f"Model thought: {part.text}")
+                        logger.info(f"Model thought: {part.thought}")
                         # Optionally yield this to the client if needed, e.g.:
-                        # thought_payload = {"type": "thought", "content": part.text}
-                        # yield f"data: {json.dumps(thought_payload)}\n\n"
+                        thought_payload = {"type": "thought", "content": part.thought}
+                        yield f"data: {json.dumps(thought_payload)}\\n\\n"
                     elif part.text:
                         # This is a regular response part
                         logger.debug(f"Response chunk: {part.text}") # Log debug level if too verbose
@@ -204,8 +207,9 @@ async def generate_response(subject: str, history: List[ChatMessage]):
     except Exception as e:
         logger.error(f"Error generating response for {subject} using model {model_name}: {str(e)}")
         # Yield an error message back to the client via SSE
-        error_detail = str(e).replace('\\n', '\\\\n').replace('"', '\\"')
-        yield f"data: {{ \"error\": \"Failed to generate response: {error_detail}\" }}\\n\\n"
+        content = f"Failed to generate response: {str(e)}"
+        payload = {"type": "error", "content": content}
+        yield f"data: {json.dumps(payload)}\\n\\n"
         # Optionally raise an exception if you want the server to also log/handle it
         # raise HTTPException(
         #     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
