@@ -13,3 +13,7 @@ curl -X POST http://localhost:8000/DBMS ^
 
 # Add more examples for other subjects as needed following the pattern above.
 # Note: The JSON is now on a single line within the -d argument and inner quotes are escaped with \". 
+
+# Test the /{subject} endpoint (Example with TEST)
+# Replace TEST in the URL and JSON body with the desired subject
+curl -X POST http://localhost:8000/TEST -H "Content-Type: application/json" -d "{\"message\": \"Write a 300 word story about the contents of the pdf\", \"subject\": \"TEST\", \"messages\": [{\"role\": \"user\", \"content\": \"Hi!\"}]}"
