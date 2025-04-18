@@ -102,7 +102,7 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         yield f"data: {{ \"message\": \"No reference materials (PDFs) found for the subject '{subject}'. Cannot generate response.\" }}\\n\\n"
         return # Stop execution for this request
 
-    model_name = "models/gemini-2.5-flash-preview-04-17" 
+    model_name = "models/gemini-2.0-flash-thinking-exp-01-21" 
 
     try:
         # Construct the prompt contents including files and chat history
@@ -163,14 +163,34 @@ async def generate_response(subject: str, history: List[ChatMessage]):
 
         full_response_for_log = ""
         async for chunk in response_stream:
-            if chunk.text:
-                # Create JSON payload using json.dumps for proper escaping
-                logger.info(f"Chunk: {chunk}")
-                payload = {"chunk": chunk.text}
-                json_payload = json.dumps(payload)
-                # Format for SSE: data: <json_string>\n\n
-                yield f"data: {json_payload}\n\n"
-                full_response_for_log += chunk.text
+            # Process parts within the chunk
+            if chunk.candidates:
+                for part in chunk.candidates[0].content.parts:
+                    # --- Added Detailed Logging ---
+                    logger.info(f"Received Part: {part!r}") # Log the repr of the part object
+                    # --- End Added Logging ---
+
+                    if part.thought:
+                        # This is a thought part
+                        logger.info(f"Model thought: {part.text}")
+                        # Optionally yield this to the client if needed, e.g.:
+                        # thought_payload = {"type": "thought", "content": part.text}
+                        # yield f"data: {json.dumps(thought_payload)}\n\n"
+                    elif part.text:
+                        # This is a regular response part
+                        logger.debug(f"Response chunk: {part.text}") # Log debug level if too verbose
+                        payload = {"type": "response", "chunk": part.text}
+                        json_payload = json.dumps(payload)
+                        yield f"data: {json_payload}\n\n"
+                        full_response_for_log += part.text
+            elif chunk.text:
+                 # Fallback for simpler chunks? Less likely with thoughts enabled, but safer.
+                 logger.debug(f"Response chunk (direct text): {chunk.text}")
+                 payload = {"type": "response", "chunk": chunk.text}
+                 json_payload = json.dumps(payload)
+                 yield f"data: {json_payload}\n\n"
+                 full_response_for_log += chunk.text
+
 
         # Log the full response after streaming is complete
         try:
