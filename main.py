@@ -12,6 +12,7 @@ import datetime
 from functools import lru_cache
 from dotenv import load_dotenv
 import json
+from main1 import anthropic_app # Import the anthropic app
 
 load_dotenv()
 
@@ -277,16 +278,25 @@ async def subject_endpoint(subject: str, request_data: ChatRequest):
             detail=f"Failed to initiate {current_subject} request stream: {str(e)}"
         )
 
+# Mount the Anthropic app under /pro
+app.mount("/pro", anthropic_app)
 
 if __name__ == "__main__":
     try:
         import uvicorn
-        # Ensure API key is set before starting
-        if not os.environ.get("GEMINI_API_KEY"):
+        # Ensure BOTH API keys are set before starting
+        gemini_key = os.environ.get("GEMINI_API_KEY")
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        
+        if not gemini_key:
             logger.critical("GEMINI_API_KEY environment variable not set. Service cannot start.")
-            exit(1)  # Exit if API key is missing
+            exit(1)
+        if not anthropic_key:
+            logger.critical("ANTHROPIC_API_KEY environment variable not set. Service cannot start.")
+            exit(1) 
 
-        logger.info("Starting pyqchat Service")
+        logger.info("Starting Combined pyqchat Service (Gemini at / and Anthropic at /pro)")
+        # Run the main app (which now includes the mounted anthropic app)
         uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
     except Exception as e:
         logger.critical(f"Failed to start service: {str(e)}")
