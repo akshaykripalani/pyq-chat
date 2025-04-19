@@ -1,6 +1,6 @@
 # --- START OF REFACTORED FILE main.py (with token counting & caching) ---
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, model_validator
@@ -101,7 +101,7 @@ def get_pdf_paths(subject: str) -> List[Path]:
         raise
 
 # --- Generate Response Function (Updated) ---
-async def generate_response(subject: str, history: List[ChatMessage]):
+async def generate_response(subject: str, history: List[ChatMessage], background_tasks: BackgroundTasks):
     async_client = get_client()
     pdf_paths = get_pdf_paths(subject)
 
@@ -253,10 +253,12 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         try:
             last_user_message = next((msg.content for msg in reversed(history) if msg.role == 'user'), "N/A")
             # Log the full response to the console for debugging
-            logger.info(f"Attempting to log to Discord. Full response content:\n---\n{full_response_for_log}\n---")
-            await log_to_discord(last_user_message, full_response_for_log if full_response_for_log else "[No text content received]", "Pro")
+            logger.info(f"Adding log_to_discord to background tasks. Full response content length: {len(full_response_for_log)}")
+            # Use background_tasks.add_task instead of await
+            background_tasks.add_task(log_to_discord, last_user_message, full_response_for_log if full_response_for_log else "[No text content received]", "Pro")
         except Exception as e:
-            logger.error(f"Failed to log to Discord after streaming: {e}")
+            # Log error related to adding the task, not running it
+            logger.error(f"Failed to add log_to_discord task to background: {e}")
 
 
     except (APIStatusError, RateLimitError, APIConnectionError, APITimeoutError) as e:
@@ -313,7 +315,7 @@ async def get_status():
 
 # --- Dynamic Subject Endpoint (Modified to handle token limit exception) ---
 @anthropic_app.post("/{subject}")
-async def subject_endpoint(subject: str, request_data: ChatRequest):
+async def subject_endpoint(subject: str, request_data: ChatRequest, background_tasks: BackgroundTasks):
     try:
         current_subject = request_data.subject
         if subject != current_subject and subject != "TEST":
@@ -327,7 +329,7 @@ async def subject_endpoint(subject: str, request_data: ChatRequest):
         # The generate_response function now handles the token limit check internally
         # before starting the stream. If it raises HTTPException, FastAPI handles it.
         return StreamingResponse(
-            generate_response(current_subject, request_data.messages),
+            generate_response(current_subject, request_data.messages, background_tasks),
             media_type="text/event-stream"
         )
 

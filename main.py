@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, model_validator
@@ -92,7 +92,7 @@ def get_pdf_files(subject):
         raise 
 
 # Generate function for subject-specific responses, now accepting history
-async def generate_response(subject: str, history: List[ChatMessage]):
+async def generate_response(subject: str, history: List[ChatMessage], background_tasks: BackgroundTasks):
     # client_module = get_client(subject) # Get the configured genai module
     client = get_client() # Get the client instance
     files = get_pdf_files(subject) # This will use the cached result if available
@@ -201,9 +201,11 @@ async def generate_response(subject: str, history: List[ChatMessage]):
             # Find the last user message in the history for logging
             last_user_message = next((msg.content for msg in reversed(history) if msg.role == 'user'), "N/A")
             # Pass "Basic" as the request type
-            await log_to_discord(last_user_message, full_response_for_log, "Basic")
+            logger.info(f"Adding log_to_discord to background tasks (Basic). Response length: {len(full_response_for_log)}")
+            background_tasks.add_task(log_to_discord, last_user_message, full_response_for_log if full_response_for_log else "[No text content received]", "Basic")
         except Exception as e:
-            logger.error(f"Failed to log to Discord after streaming: {e}")
+            # Log error related to adding the task, not running it
+            logger.error(f"Failed to add log_to_discord task to background (Basic): {e}")
 
 
     except Exception as e:
@@ -252,7 +254,7 @@ async def get_status(): # Renamed for clarity
 
 # Single dynamic endpoint for all subjects
 @app.post("/{subject}")
-async def subject_endpoint(subject: str, request_data: ChatRequest):
+async def subject_endpoint(subject: str, request_data: ChatRequest, background_tasks: BackgroundTasks):
     try:
         # Use the subject from the validated request data
         current_subject = subject
@@ -260,7 +262,7 @@ async def subject_endpoint(subject: str, request_data: ChatRequest):
 
         # Return a StreamingResponse with the async generator
         return StreamingResponse(
-            generate_response(current_subject, request_data.messages),
+            generate_response(current_subject, request_data.messages, background_tasks),
             media_type="text/event-stream"
         )
 
