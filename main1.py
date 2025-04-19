@@ -222,16 +222,7 @@ async def generate_response(subject: str, history: List[ChatMessage], background
             async for event in stream:
                 logger.info(f"Received Stream Event: {event.type}")
 
-                if event.type == "text":
-                    logger.debug(f"Response chunk: {event.text}")
-                    payload = {"type": "response", "chunk": event.text}
-                    yield f"data: {json.dumps(payload)}\n\n"
-                    full_response_for_log += event.text
-                elif event.type == "thinking":
-                    logger.info(f"Model thought chunk: {event.thinking}")
-                    thought_payload = {"type": "thought", "content": event.thinking}
-                    yield f"data: {json.dumps(thought_payload)}\n\n"
-                elif event.type == "content_block_delta":
+                if event.type == "content_block_delta":
                      if event.delta.type == "text_delta":
                          logger.debug(f"Response chunk (delta): {event.delta.text}")
                          payload = {"type": "response", "chunk": event.delta.text}

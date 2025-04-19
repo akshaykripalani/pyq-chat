@@ -17,3 +17,6 @@ curl -X POST http://localhost:8000/DBMS ^
 # Test the /{subject} endpoint (Example with TEST)
 # Replace TEST in the URL and JSON body with the desired subject
 curl -X POST http://localhost:8000/TEST -H "Content-Type: application/json" -d "{\"message\": \"Write a 300 word story about the contents of the pdf\", \"subject\": \"TEST\", \"messages\": [{\"role\": \"user\", \"content\": \"Hi!\"}]}"
+
+
+curl -X POST http://localhost:8000/pro/TOC -H "Content-Type: application/json" -d "{\"message\":\"What have they asked in mealy/moore machines\",\"subject\":\"TOC\",\"messages\":[{\"role\":\"user\",\"content\":\"is this the paper on tcs? just say yes/no.?\"}]}"
