@@ -136,10 +136,12 @@ async def generate_response(subject: str, history: List[ChatMessage], background
 
         if api_role == 'user' and not first_user_message_processed:
             content_blocks: List[Union[TextBlockParam, DocumentBlockParam]] = []
-            content_blocks.append({"type": "text", "text": message.content})
+            content_blocks.append({"type": "text", "text": message.content}) # Add text first
+            cacheable_doc_count = 0
+            MAX_CACHEABLE_DOCS = 4 # Define the limit
             for pdf_path in pdf_paths:
-                # Add cache_control here for prompt caching
                 cache_control: CacheControlEphemeralParam = {"type": "ephemeral"}
+                current_cache_control = cache_control if cacheable_doc_count < MAX_CACHEABLE_DOCS else None
                 content_blocks.append(
                     {
                         "type": "document",
@@ -148,9 +150,11 @@ async def generate_response(subject: str, history: List[ChatMessage], background
                             "media_type": "application/pdf",
                             "data": pdf_path
                         },
-                        "cache_control": cache_control # Add cache control
+                        "cache_control": current_cache_control # Apply conditionally
                     }
                 )
+                if current_cache_control: # Increment only if cache was actually applied
+                    cacheable_doc_count += 1
             content = content_blocks
             first_user_message_processed = True
         else:
