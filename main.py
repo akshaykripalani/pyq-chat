@@ -200,7 +200,8 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         try:
             # Find the last user message in the history for logging
             last_user_message = next((msg.content for msg in reversed(history) if msg.role == 'user'), "N/A")
-            await log_to_discord(last_user_message, full_response_for_log)
+            # Pass "Basic" as the request type
+            await log_to_discord(last_user_message, full_response_for_log, "Basic")
         except Exception as e:
             logger.error(f"Failed to log to Discord after streaming: {e}")
 
@@ -217,9 +218,10 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         #     detail=f"Failed to generate response: {str(e)}"
         # )
 
-async def log_to_discord(user_query: str, bot_response: str):    
+async def log_to_discord(user_query: str, bot_response: str, request_type: str): # Added request_type
     log_entry = (
         f"**[{datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30))).strftime('%Y-%m-%d %H:%M:%S %Z')}]**\n"
+        f"**Request Type:** {request_type}\n" # Added request type log
         f"**User Query:** {user_query}\n"
         f"**Bot Response:** {bot_response}\n"
         "―――――――――――――――――――――――――――"

@@ -27,6 +27,7 @@ from functools import lru_cache
 from dotenv import load_dotenv
 import json
 from pathlib import Path
+import asyncio
 
 load_dotenv()
 
@@ -208,7 +209,7 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         logger.info(f"Streaming content for {subject} using model {model_name}.")
         full_response_for_log = ""
         # Optional: Configure thinking (ensure budget < max_tokens)
-        thinking_config: ThinkingConfigParam = {"type": "enabled", "budget_tokens": 1024} # Enable thinking here
+        thinking_config: ThinkingConfigParam = {"type": "enabled", "budget_tokens": 1024} # Reduced thinking budget
 
         async with async_client.messages.stream(
             model=model_name,
@@ -251,7 +252,9 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         # Log the full response after streaming is complete
         try:
             last_user_message = next((msg.content for msg in reversed(history) if msg.role == 'user'), "N/A")
-            await log_to_discord(last_user_message, full_response_for_log if full_response_for_log else "[No text content received]")
+            # Log the full response to the console for debugging
+            logger.info(f"Attempting to log to Discord. Full response content:\n---\n{full_response_for_log}\n---")
+            await log_to_discord(last_user_message, full_response_for_log if full_response_for_log else "[No text content received]", "Pro")
         except Exception as e:
             logger.error(f"Failed to log to Discord after streaming: {e}")
 
@@ -268,10 +271,11 @@ async def generate_response(subject: str, history: List[ChatMessage]):
         yield f"data: {json.dumps(payload)}\n\n"
 
 # --- Discord Logging (Unchanged) ---
-async def log_to_discord(user_query: str, bot_response: str):
+async def log_to_discord(user_query: str, bot_response: str, request_type: str):
     # ... (keep the existing implementation)
     log_entry = (
         f"**[{datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30))).strftime('%Y-%m-%d %H:%M:%S %Z')}]**\n"
+        f"**Request Type:** {request_type}\n" # Added request type log
         f"**User Query:** {user_query}\n"
         f"**Bot Response:** {bot_response}\n"
         "―――――――――――――――――――――――――――"
@@ -287,8 +291,12 @@ async def log_to_discord(user_query: str, bot_response: str):
                 timeout=aiohttp.ClientTimeout(total=3)
             )
             logger.info("Successfully logged to Discord.")
+        except aiohttp.ClientError as ce: # Catch specific aiohttp client errors
+            logger.error(f"Failed to log to Discord (Client Error): {ce}")
+        except asyncio.TimeoutError: # Catch specific timeout errors
+             logger.error(f"Failed to log to Discord: Request timed out after 3 seconds.")
         except Exception as e:
-            logger.error(f"Failed to log to Discord: {e}")
+            logger.error(f"Failed to log to Discord (Unexpected Error): {type(e).__name__} - {e}")
 
 # --- Status Endpoint (Unchanged) ---
 @anthropic_app.get("/status")
