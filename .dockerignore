@@ -1,0 +1,32 @@
+# Git files
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+
+# Virtual environment
+.venv/
+virtualenv/
+env/
+venv/
+ENV/
+
+# IDE files
+.idea/
+.vscode/
+
+# Other specific files/dirs you might want to ignore
+# *.log
+# uploads/
+# etc. 
